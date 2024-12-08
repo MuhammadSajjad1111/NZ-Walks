@@ -1,8 +1,10 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using NZ_Walks.API.Data;
 using NZ_Walks.API.Models.Domain;
 using NZ_Walks.API.Models.DTO;
+using NZ_Walks.API.Repositories;
 
 namespace NZ_Walks.API.Controllers
 {
@@ -12,15 +14,17 @@ namespace NZ_Walks.API.Controllers
     public class RegionsController : ControllerBase
     {
 
-        public RegionsController(NZWalksDbContext dbContext)
+        public RegionsController(NZWalksDbContext dbContext , IRegionRepository regionRepository) 
         {
             DbContext = dbContext;
+            RegionRepository = regionRepository;
         }
 
         public NZWalksDbContext DbContext { get; }
+        public IRegionRepository RegionRepository { get; }
 
         [HttpGet]
-        public IActionResult getAll() {
+        public async Task<IActionResult> getAll() {
             //var regions = new List<Region> {
             //  new Region{
             //    Id= Guid.NewGuid(),
@@ -39,7 +43,7 @@ namespace NZ_Walks.API.Controllers
 
 
 
-            var regions = DbContext.Regions.ToList();
+            var regions = await RegionRepository.GetAllAsync();
 
             var DtoRegions=new List<RegionDto>();
 
@@ -64,19 +68,20 @@ namespace NZ_Walks.API.Controllers
         // get: https://localhost:7179/api/regions/{id}
         [HttpGet]
         [Route("{id:guid}")]
-        public IActionResult getRegionById([FromRoute]Guid id) {
+        public async Task<IActionResult> getRegionById([FromRoute]Guid id) {
 
             //var region = DbContext.Regions.Find(id);
 
             // Get data from database
-            var region = DbContext.Regions.FirstOrDefault(x => x.Id == id);
+            //var region = await DbContext.Regions.FirstOrDefaultAsync(x => x.Id == id);
+            var region = await RegionRepository.GetSingleRegion(id);
 
             // map domain modals to dtos
 
 
 
             if (region == null) {
-                NotFound();
+                return NotFound();
             }
 
             var regionDto = new RegionDto
@@ -94,7 +99,7 @@ namespace NZ_Walks.API.Controllers
         // post: https://localhost:7179/api/regions
         [HttpPost]
 
-        public IActionResult create([FromBody] AddRegionRequestDto addRegionRequest) {
+        public async Task<IActionResult> create([FromBody] AddRegionRequestDto addRegionRequest) {
 
             var regionDomainModal = new Region
             {
@@ -105,8 +110,9 @@ namespace NZ_Walks.API.Controllers
 
             };
 
-            DbContext.Regions.Add(regionDomainModal);
-            DbContext.SaveChanges();
+            //await DbContext.Regions.AddAsync(regionDomainModal);
+            await RegionRepository.createNewRegion(regionDomainModal);
+            //DbContext.SaveChanges();
 
             var regionDto = new RegionDto
             {
@@ -133,9 +139,22 @@ namespace NZ_Walks.API.Controllers
         //update a region
         //put: https://localhost:7179/api/regions/{id}
 
-        public IActionResult Update([FromRoute] Guid id , [FromBody] UpdateRegionRequestDto updateRegionRequest) {
+        public async Task<IActionResult> Update([FromRoute] Guid id , [FromBody] UpdateRegionRequestDto updateRegionRequest) {
 
-         var regionDomainModal=DbContext.Regions.FirstOrDefault(x => x.Id == id);
+            //var regionDomainModal=await DbContext.Regions.FirstOrDefaultAsync(x => x.Id == id); 
+
+            var domainModal = new Region
+            {
+
+                Name = updateRegionRequest.Name,
+                Code = updateRegionRequest.Code,
+                RegionImageUrl = updateRegionRequest.RegionImageUrl,
+
+
+            };
+
+            var regionDomainModal = await RegionRepository.updateRegion(id, domainModal);
+
 
             if (regionDomainModal == null) {
                 NotFound();
@@ -163,6 +182,49 @@ namespace NZ_Walks.API.Controllers
 
 
         }
+
+
+        // delete a region
+
+        [HttpDelete]
+        [Route("{id:guid}")]
+
+        public async Task<IActionResult> delete([FromRoute] Guid id) {
+
+            //var regionTODelete =  await DbContext.Regions.FirstOrDefaultAsync(x => x.Id == id);
+
+            var regionTODelete = await RegionRepository.deleteRegion(id);
+
+
+            if (regionTODelete == null)
+            {
+                return NotFound();
+            }
+
+            var domainModal = new RegionDto
+            {
+                Code = regionTODelete.Code,
+                Name = regionTODelete.Name,
+                RegionImageUrl = regionTODelete.RegionImageUrl
+            };
+            //DbContext.Regions.Remove(regionTODelete);
+
+            //DbContext.SaveChangesAsync();
+
+
+            return Ok(domainModal);
+;
+
+
+
+
+
+
+
+
+
+        }
+
 
 
 
