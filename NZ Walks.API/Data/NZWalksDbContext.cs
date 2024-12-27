@@ -14,6 +14,7 @@ namespace NZ_Walks.API.Data
         public DbSet<Region> Regions { get; set; }
 
         public DbSet<Walk>  Walks { get; set; }
+            base.OnModelCreating(modelBuilder);
 
 
 
